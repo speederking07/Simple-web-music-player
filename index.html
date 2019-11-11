@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="author" content="Marek Bauer">
+	<link href="https://fonts.googleapis.com/css?family=Indie+Flower" rel="stylesheet">
+	<style>
+		body
+		{
+			text-align: center;
+			background: #666060;
+			font-family: 'Indie Flower', cursive;
+			font-size: 16pt;
+			background: url("img/dust_scratches.png");
+		}
+
+		.noselect {
+		  -webkit-touch-callout: none;
+			-webkit-user-select: none;
+			   -moz-user-select: none;
+				-ms-user-select: none;
+					user-select: none;
+		}
+
+		#player
+		{
+			display: none;
+		}
+
+		bottom{
+			text-align: left;
+			width: 100%;
+			height: 80px;
+			position: fixed;
+			bottom: 0;	
+			left: 0;
+			background: url("img/prism.png");
+			background-attachment: fixed;
+			background-position: center; 
+		}
+
+		.playButton {
+			display: block;
+			position: absolute;
+			top: 6px;
+			left: 0;
+			height: 25px;
+			width: 25px;
+			padding: 16px;
+			margin: 4px;
+			margin-top: 6px;
+			cursor: pointer;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+			border-radius: 60px;
+			border: solid 2px #ffffffab;
+			-webkit-transition: border-color 0.3s; /* Safari */
+			transition: border-color 0.3s;  
+		}
+
+		.playButton input {
+			display: none;
+		}
+
+		.playButton {
+			position: absolute;
+			left: 0;
+			height: 25px;
+			width: 25px;
+			
+		}
+
+		.playButton:hover{
+			border: solid 3px white;	
+			margin: 3px;
+			margin-top: 12px!important;
+		}
+
+		bottom:hover .playButton
+		{
+			margin-top: 13px;
+		}
+
+		.checkmark:after {
+			content: "";
+			position: absolute;
+			display: block;
+			left: 50%;
+			top: 50%;
+			width: 26px;
+			height: 26px;
+			margin-top: -15px;
+			margin-left: -15px;
+			border: solid white;
+			padding: 0;
+		}
+
+		.playButton .checkmark:after {
+			left: 50%;
+			top: 50%;
+			width: 8px;
+			height: 26px;
+			margin-top: -13px;
+			margin-left: -9px;
+			border: solid white;
+			border-width: 0 6px 0 6px;
+			border-radius: 1px;
+		}
+
+		.playButton input:checked ~ .checkmark:after {
+			left: 50%;
+			top: 50%;
+			width: 4px;
+			height: 0px;
+			margin-top: -14px;
+			margin-left: -8px;
+			border-top: 14px solid transparent;
+			border-bottom: 14px solid transparent;
+			border-right: 14px solid transparent;
+			border-left: 24px solid white;
+		}
+
+		bottom:hover
+		{
+			height: 87px;
+		}
+
+		bottom:hover #progressBar
+		{
+			height: 10px;
+		}
+
+		#progressBar
+		{
+			cursor: pointer;
+			height: 3px;
+			background: linear-gradient(to right, lime 0%, lime 0%,transparent 3%,transparent 120%);
+		}
+
+		#controls
+		{
+			display: flex;
+		}
+
+		#musicData
+		{
+			color: white;
+			float: left;
+		}
+
+		#volumeDiv
+		{
+			height: 80px;
+			margin-left: auto;
+			display: flex;
+			width: 220px;
+			align-items: center;
+			justify-content: center;
+		}
+
+		#volumeControl
+		{
+			cursor: pointer;
+			padding: 4px 6px;
+			border-radius: 10px;
+			border: white solid 1px;
+			width: 160px;
+			background: linear-gradient(to right, lime 0%, lime 100%,transparent 102%,transparent 100%);
+		}
+
+		#timeFloatingBar
+		{
+			display: none;
+			padding: 5px 10px;
+			position: fixed;
+			bottom: 90px;
+			color: white;
+			background: #272323d0;
+			border-radius: 30px;
+		}
+
+		#source
+		{
+			display: none;
+		}
+
+		.dropArea
+		{
+			width: 190px;
+			height: 40px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.bigDropArea
+		{
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: calc(100% - 90px);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.dropArea svg
+		{
+			width:36px;
+			height:36px;
+		}
+
+		.dropArea #textInput span:after
+		{
+			content: "Choose file";
+			font-size: 12pt;
+		}
+
+		.bigDropArea #textInput span:after
+		{
+			content: "Drop here";
+			font-size: 24pt;
+		}
+
+		.bigDropArea svg
+		{
+			width: 60%;
+			height: 60%;
+		}
+
+		#musicData
+		{
+			width: calc(100% - 300px);
+			margin: auto;
+		}
+
+
+		#lengthData {
+			float: right;
+			text-align: right;
+			display: block;
+		}
+
+		#oscilloscope
+		{
+			width: 86%;
+			height: calc(100vh - 150px);
+		}
+	</style>
+	<script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.3.1.min.js"></script>
+	<script>
+		var numOfFreq = 32;
+		
+		var audioCtx, source, analyser, dataArray, bufferLength, floatArray, player, dataRefresh, canvas, canvasCtx;
+		var maxValues = new Uint8Array(numOfFreq), framesToDelete = new Uint8Array(numOfFreq);
+		var counter = 0;
+		
+		samples = Array(1,2,3,4,6,8,12,16,24,36,52,64,90,128,188,232);
+		
+		function volumeChange(event){
+			var offset = $('#volumeControl').offset();
+			var value = Math.floor( ((event.pageX - offset.left) / ($('#volumeControl').width() + 12)) * 100);
+			if(value > 100) value = 100;
+			else if (value < 0) value = 0;
+			$('#volumeControl').attr("value", value);
+			$('#volumeControl').css("background", "linear-gradient(to right, lime 0%, lime "+value+"%,transparent "+Number(value+2)+"%,transparent 100%)");	
+			if(value > 67) $('#volumeIcon').attr("src", "img/volume-high.png");	
+			else if (value > 34) $('#volumeIcon').attr("src", "img/volume-medium.png");	
+			else if (value > 1) $('#volumeIcon').attr("src", "img/volume-low.png");	
+			else $('#volumeIcon').attr("src", "img/volume-off.png");
+			player.volume = value/100;
+		};
+		
+		function secToTime(a)
+		{
+			a = Math.floor(a);
+			var min = Math.floor(a/60);
+			if (min == 0) min = "00";
+			else if (min < 10) min = "0"+min;		
+			var sec = a%60;
+			if (sec == 0) sec = "00";
+			else if (sec < 10) sec = "0"+sec;
+			return min+":"+sec;
+		};
+		
+		function setTimeData()
+		{
+			var dur = player.duration;
+			var cur = player.currentTime
+			if(cur >= dur) pause();
+			$('#progressBar').css("background", "linear-gradient(to right, lime 0%, lime "+(cur/dur)*100+"%,transparent "+Number((cur/dur)*100+3)+"%,transparent 100%)");
+			$('#lengthData').html(secToTime(cur)+"/"+secToTime(dur));	
+		}
+		
+		$(document).ready(function(){
+			player = document.getElementById("player");
+			$('#volumeControl').mousedown(function(event){
+				volumeChange(event);
+				$(document).mousemove( volumeChange );
+				$(document).mouseup( function(){
+					$(document).off("mousemove");
+				});
+			});
+			$('#progressBar').mousemove(function(event){
+				$('#timeFloatingBar').css("display","block");
+				var width = $('#timeFloatingBar').width()+22;			
+				var pos = Number(event.pageX-width/2);
+				if(pos < 1) pos = 1;
+				else if ( pos > $(document).width() - width ) pos = $(document).width() - width; 
+				$('#timeFloatingBar').css("left", pos+"px");
+				var dur = player.duration;
+				var val = dur * (event.pageX / $(document).width());
+				$('#timeFloatingBar').html(secToTime(val));
+			});
+			$('#progressBar').click(function(event){
+				var dur = player.duration;
+				var val = dur * (event.pageX / $(document).width());
+				player.currentTime = val;
+				setTimeData();
+			});
+			$('#progressBar').mouseout(function(){
+				$('#timeFloatingBar').css("display","none");
+			});
+			$("#play").change(function(){
+				if(this.checked) pause();
+				else play();
+			});
+			$(window).bind('drop', function(event){
+				event.preventDefault();
+				counter = 0; 
+				$("#player").attr("src", URL.createObjectURL(event.originalEvent.dataTransfer.files[0]));
+				$("#songName").html(event.originalEvent.dataTransfer.files[0].name);
+				pause();
+				$('#sourceLabel').removeClass('bigDropArea');
+			});
+			
+			$(window).bind('dragover', function(event){
+				event.preventDefault();
+			});
+
+			$(window).bind({
+				dragenter: function(event) {
+					event.preventDefault();
+					counter++;
+					$('#sourceLabel').addClass('bigDropArea');
+				},
+
+				dragleave: function() {
+					counter--;
+					if (counter === 0) { 
+						$('#sourceLabel').removeClass('bigDropArea');
+					}
+				}
+			});
+			$('#source').change(function(event){		
+				$("#player").attr("src", URL.createObjectURL(event.target.files[0]));
+				$("#songName").html(event.target.files[0].name);
+				pause();
+			});	
+			canvas = document.getElementById("oscilloscope");
+			canvasCtx = canvas.getContext("2d");
+		});
+		
+		function play(){
+			if(audioCtx === undefined){
+				audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+				analyser = audioCtx.createAnalyser();
+				source = audioCtx.createMediaElementSource( player ); 
+				source.connect(analyser);				
+				analyser.connect(audioCtx.destination);
+				analyser.fftSize = 32*4;
+				analyser.smoothingTimeConstant = 0.4;
+				analyser.minDecibels = -90;
+				analyser.maxDecibels = -10;
+				bufferLength = analyser.frequencyBinCount;
+				dataArray = new Uint8Array(bufferLength);
+				draw();
+			}
+			player.play();
+			dataRefresh = setInterval(setTimeData, 100);
+		}
+		
+		function pause(){
+			player.pause();
+			$("#play").prop('checked', true);
+			setTimeout(setTimeData,20);
+			clearInterval(dataRefresh);
+		};
+		
+		function getBars(dataArray){
+			res = new Uint8Array(16);
+			for(i = 0; i < samples.length; i++)
+				res[i] = dataArray[samples[i]] / 16;
+			return res;
+		}
+		
+		function computerMaxValues(res)
+		{
+			for (i = 0; i < numOfFreq; i++)
+			{
+				if(framesToDelete[i] == 1) maxValues[i] = undefined;
+				else framesToDelete[i]--;
+			}
+			for (i = 0; i < numOfFreq; i++)
+			{
+				if(maxValues[i] === undefined || maxValues[i] <= res[i])
+				{
+					maxValues[i] = res[i];
+					framesToDelete[i] = 30; 
+				}
+			}
+		}
+		
+		function floor(a)
+		{
+			return Math.floor(a);
+		}
+
+		var res;
+		function draw() {
+			requestAnimationFrame(draw);
+			analyser.getByteFrequencyData(dataArray);
+			computerMaxValues(dataArray);
+			canvasCtx.fillStyle = $("body").css("background-color");
+			canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+			var horisontalUnit = Math.floor(canvas.width/numOfFreq);
+			var verticalUnit = canvas.height/260;
+			var space = Math.floor((canvas.width - (horisontalUnit)*numOfFreq)/2)
+			
+			for(i = 0; i < numOfFreq; i++)
+			{
+				canvasCtx.fillStyle = "lime";
+				canvasCtx.fillRect(floor(space+horisontalUnit*i+1), floor(verticalUnit*(255-dataArray[i])+verticalUnit*5), floor(horisontalUnit-2), floor(verticalUnit*dataArray[i]));			
+			}
+			
+			for(i = 0; i < numOfFreq; i++)
+			{
+				canvasCtx.fillStyle = "#363636";
+				canvasCtx.fillRect(floor(space+horisontalUnit*i+1), Math.floor(verticalUnit*(255-maxValues[i])+verticalUnit*4), Math.floor(horisontalUnit-2), floor(1));			
+			}
+		}		
+	</script>	
+</head>
+<body>
+	<div class="noselect" id="timeFloatingBar">12:00</div>
+	<label id="sourceLabel" class="dropArea">
+		<svg class="noselect" viewBox="0 0 24 24">
+			<path fill="#000000" d="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,12L16,16H13.5V19H10.5V16H8L12,12Z" />
+		</svg>
+		<div class="noselect" id="textInput"><span/></div>			
+		<input type="file" id="source">
+	</label>
+	<div id="mp3_player">
+	  <div id="audio_box"></div>
+	</div>
+	<audio id="player">
+		Your browser does not support the audio tag.
+	</audio>
+	<canvas id="oscilloscope"> </canvas>	
+	<bottom>
+		<div id="progressBar"> 
+		</div>
+		<div id="controls">
+			<div style="width: 80px; height: 100%;">
+				<label class="playButton noselect">
+					<input type="checkbox" id="play" checked>
+					<span class="checkmark noselect"></span>
+				</label>
+			</div>
+			<div id="musicData"> 
+				<span class="noselect" id="songName"> No file </span>
+				<span class="noselect" id="lengthData"> --:--/--:-- </span>
+			</div>
+			<div id="volumeDiv">
+				<img class="noselect" id="volumeIcon" src="img/volume-high.png">
+				<div class="noselect" id="volumeControl" value="100"> </div>
+			</div>
+		</div>
+	</bottom>
+</body>
+</html>
